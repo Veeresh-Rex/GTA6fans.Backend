@@ -1,0 +1,61 @@
+# Exclude build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# Exclude NuGet packages
+packages/
+.nuget/
+
+# Exclude IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Exclude OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Exclude git files
+.git/
+.gitignore
+.gitattributes
+
+# Exclude Docker files (we don't need them in the build context)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Exclude documentation
+README.md
+*.md
+
+# Exclude log files
+*.log
+logs/
+
+# Exclude temporary files
+*.tmp
+*.temp
+*~
+
+# Exclude node modules (if any)
+node_modules/
+npm-debug.log*
+
+# Exclude test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+
+# Exclude backup files
+*.backup
