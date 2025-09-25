@@ -38,7 +38,7 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 # Copy the entrypoint script
-COPY entrypoint.sh ./
+COPY GTA6fans.Api/entrypoint.sh ./
 RUN chmod +x ./entrypoint.sh
 
 # Create a non-root user for security
@@ -60,4 +60,4 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 
 # Use the entrypoint script
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["./entrypoint.sh"]

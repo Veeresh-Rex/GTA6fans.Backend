@@ -2,4 +2,4 @@
 
 echo "$AppSet" > /app/appsettings.json
 
-dotnet InstantCodeLab.Api.dll
+dotnet GTA6fans.Api.dll
