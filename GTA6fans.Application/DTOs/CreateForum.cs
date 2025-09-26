@@ -9,6 +9,8 @@ public class CreateForumRequestDTO
     public string Content { get; set; } = string.Empty;
 
     public string Category { get; set; } = string.Empty;
+
+    public string Author { get; set; } = string.Empty;
 }
 
 
@@ -34,9 +36,13 @@ public class ForumResponseDTO
 
     public LastPost LastPost { get; set; }
 
-    public List<Reply> Replies { get; set; }
+    public List<Reply> Replies { get; set; } = new();
+
+    public int RepliesCount { get; set; }
 
     public List<string>? Images { get; set; }
+    public string Slug { get; set; }
+
 }
 
 public class Author

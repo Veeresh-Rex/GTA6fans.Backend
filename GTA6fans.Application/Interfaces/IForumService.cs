@@ -8,6 +8,6 @@ public interface IForumService
 {
     Task<CreateForumResponseDTO> CreateTopicAsync(CreateForumRequestDTO requestDTO, string authorId);
     Task<ForumResponseDTO> GetForumbySlug(string slug);
-    Task<PagedResult<ForumTopic>> GetForumList(int page, int pageSize, bool? sortByPopularity);
+    Task<PagedResult<ForumResponseDTO>> GetForumList(int page, int pageSize, bool? sortByPopularity);
     Task AddReplyAsync(CreateReplyRequest request);
 }

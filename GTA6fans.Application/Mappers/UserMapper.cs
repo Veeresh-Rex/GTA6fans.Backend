@@ -13,7 +13,6 @@ public static class UserMapper
             Id = user.Id,
             DisplayName = user.DisplayName,
             Email = user.Email,
-            Status = user.Status,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt
         };

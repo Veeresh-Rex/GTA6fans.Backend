@@ -17,6 +17,16 @@ public class UserService : IUserService
         _jwtTokenGenerator = jwtTokenGenerator;
     }
 
+    public async Task<UserDto> GetUserByIdAsync(string userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            throw new KeyNotFoundException("User not found.");
+        }
+        return UserMapper.ToDto(user);
+    }
+
     public async Task<AuthenticateUserResponse> Login(AuthenticateUserRequest userRequest)
     {
         var user = await _userRepository.GetByEmailAsync(userRequest.Email);
@@ -24,11 +34,21 @@ public class UserService : IUserService
         {
             throw new UnauthorizedAccessException("Invalid email or password.");
         }
-        // Generate JWT token (you should implement a proper JWT service)
+
         var token = _jwtTokenGenerator.GenerateJwtToken(user.Id, (int)user.Type);
 
-        return new AuthenticateUserResponse { Token = token };
-
+        return new AuthenticateUserResponse
+        {
+            Token = token,
+            User = new UserDto
+            {
+                DisplayName = user.DisplayName,
+                Email = user.Email,
+                Id = user.Id,
+                UpdatedAt = user.UpdatedAt,
+                CreatedAt = user.CreatedAt,
+            }
+        };
     }
 
     public async Task<UserDto> CreateUserAsync(CreateUserRequest request)
@@ -47,10 +67,10 @@ public class UserService : IUserService
 
         // Hash the password (you should use a proper password hashing library like BCrypt)
         var passwordHash = PasswordHasher.HashPassword(request.Password);
-        
+
         var user = UserMapper.ToEntity(request, passwordHash);
         var createdUser = await _userRepository.CreateAsync(user);
-        
+
         return UserMapper.ToDto(createdUser);
     }
 

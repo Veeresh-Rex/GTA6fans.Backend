@@ -29,12 +29,6 @@ public class ForumService : IForumService
             throw new ArgumentException("Forum not found");
         }
 
-        var author = await _userRepository.GetByIdAsync(forum.AuthorId);
-        if (author == null)
-        {
-            throw new ArgumentException("Author not found");
-        }
-
         var replies = await _forumReplyRepository.GetByTopicIdAsync(forum.Id);
 
         ForumResponseDTO forumResponseDTO = new ForumResponseDTO()
@@ -42,12 +36,14 @@ public class ForumService : IForumService
             Id = forum.Id,
             Author = new Author
             {
-                Name = author.DisplayName, 
+                Name = forum.AuthorName, 
             },
             Category = forum.Category,
+            Slug = forum.Slug,
             Content = forum.Content,
             Images = forum.Images,
             Replies = BuildReplyTree(replies),
+            RepliesCount = forum.ReplyCount,
             Title = forum.Title,
             Timestamp = forum.CreatedAt.ToString(),
             LastPost = new LastPost
@@ -60,24 +56,59 @@ public class ForumService : IForumService
         return forumResponseDTO;
     }
 
-    public async Task<PagedResult<ForumTopic>> GetForumList(int page, int pageSize, bool? sortByPopularity)
+    public async Task<PagedResult<ForumResponseDTO>> GetForumList(int page, int pageSize, bool? sortByPopularity)
     {
         PagedResult<ForumTopic> pagedResult = new PagedResult<ForumTopic>();
 
         if (sortByPopularity is true)
         {
-            pagedResult = await _forumTopicRepository.GetPagedAsync(page, pageSize, null, x => x.OrderBy(e => e.CreatedAt));
+            pagedResult = await _forumTopicRepository.GetPagedAsync(page, pageSize, null, x => x.OrderBy(e => e.ReplyCount));
         }
         else
         {
             pagedResult = await _forumTopicRepository.GetPagedAsync(page, pageSize, null, x => x.OrderBy(e => e.CreatedAt));
         }
 
-        return pagedResult;
+        var forumResponseDTOs = pagedResult.Items.Select(forum => new ForumResponseDTO()
+        {
+            Id = forum.Id,
+            Author = new Author
+            {
+                Name = forum.AuthorName,
+            },
+            Category = forum.Category,
+            Content = forum.Content,
+            Images = forum.Images,
+            RepliesCount = forum.ReplyCount,
+            Title = forum.Title,
+            Timestamp = forum.CreatedAt.ToString("O"),
+            LastPost = new LastPost
+            {
+                Author = forum.LastActivity?.AuthorName ?? "",
+                Timestamp = forum.LastActivity?.Timestamp.ToString("O") ?? ""
+            },
+            Slug = forum.Slug
+        }).ToList();
+
+        PagedResult<ForumResponseDTO> result = new PagedResult<ForumResponseDTO>()
+        {
+            Items = forumResponseDTOs,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalCount = pagedResult.TotalCount
+        };
+
+        return result;
     }
 
     public async Task<CreateForumResponseDTO> CreateTopicAsync(CreateForumRequestDTO requestDTO, string authorId)
     {
+        var user = await _userRepository.GetByIdAsync(authorId);
+        if(user == null)
+        {
+            throw new ArgumentException("Author not found");
+        }
+
         string baseSlug = SlugHelper.GenerateSlug(requestDTO.Title);
         var existingSlugs = await _forumTopicRepository.FindAsync(x => x.Slug.StartsWith(baseSlug), x => x.Slug);
 
@@ -87,8 +118,15 @@ public class ForumService : IForumService
             Category = requestDTO.Category,
             Content = requestDTO.Content,
             Title = requestDTO.Title,
-            Slug = requestDTO.Title.ToLower().Replace(" ", "-")
-
+            Slug = requestDTO.Title.ToLower().Replace(" ", "-"),
+            AuthorName = user.DisplayName,
+            Images = new List<string>(),
+            LastActivity = new LastActivity()
+            {
+                AuthorId = authorId,
+                AuthorName = user.DisplayName,
+                Timestamp = DateTime.UtcNow
+            }
         };
         string slug = baseSlug;
 
@@ -122,13 +160,18 @@ public class ForumService : IForumService
             throw new ArgumentException("Topic not found");
         }
 
+        if (author == null)
+        {
+            throw new ArgumentException("Author not found");
+        }
+
         ForumReply forumReply = new ForumReply()
         {
             AuthorId = request.AuthorId,
             Content = request.Content,
             ParentId = request.ParentId,
             TopicId = request.TopicId,
-            AuthorName = author?.DisplayName
+            AuthorName = author.DisplayName
         };
 
         await _forumReplyRepository.CreateAsync(forumReply);
@@ -139,22 +182,41 @@ public class ForumService : IForumService
         });
     }
 
-    private static List<Reply> BuildReplyTree(
-        IEnumerable<ForumReply> allReplies,
-        string? parentId = null)
+    private static List<Reply> BuildReplyTree(IEnumerable<ForumReply> allReplies)
     {
-        return allReplies
-            .Where(r => r.ParentId is null)
-            .Select(r => new Reply
+        if(allReplies.Count() == 0)
+        {
+            return new List<Reply>();
+        }
+
+        var replyLookup = allReplies
+            .ToDictionary(r => r.Id.ToString(), r => new Reply
             {
                 Id = r.Id,
-                Author = new Author
-                {
-                    Name = r.AuthorName
-                },
-                Timestamp = r.CreatedAt.ToString("o"), // ISO format
+                Author = new Author { Name = r.AuthorName },
+                Timestamp = r.CreatedAt.ToString("o"),
                 Content = r.Content,
-                Replies = BuildReplyTree(allReplies, r.Id.ToString()) // recursive
-            }).ToList();
+                Replies = new List<Reply>()
+            });
+
+        var roots = new List<Reply>();
+
+        foreach (var reply in allReplies)
+        {
+            if (!string.IsNullOrEmpty(reply.ParentId) &&
+                replyLookup.ContainsKey(reply.ParentId))
+            {
+                // Attach child to parent
+                replyLookup[reply.ParentId].Replies.Add(replyLookup[reply.Id.ToString()]);
+            }
+            else
+            {
+                // No parent → root node
+                roots.Add(replyLookup[reply.Id.ToString()]);
+            }
+        }
+
+        return roots;
     }
+
 }

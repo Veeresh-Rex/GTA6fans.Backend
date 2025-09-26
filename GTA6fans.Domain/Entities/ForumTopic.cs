@@ -19,6 +19,9 @@ public class ForumTopic : BaseEntity
     [BsonElement("authorId")]
     public string AuthorId { get; set; } = string.Empty;
 
+    [BsonElement("authorName")]
+    public string AuthorName { get; set; } = string.Empty;
+
     [BsonElement("images")]
     public List<string> Images { get; set; } = new();
 

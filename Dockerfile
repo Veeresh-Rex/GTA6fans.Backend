@@ -60,4 +60,4 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 
 # Use the entrypoint script
-CMD ["./entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]

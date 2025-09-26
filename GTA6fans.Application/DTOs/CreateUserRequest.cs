@@ -29,4 +29,5 @@ public class AuthenticateUserRequest
 public class AuthenticateUserResponse
 {
     public string Token { get; set; } = string.Empty;
+    public UserDto User { get; set; }
 }

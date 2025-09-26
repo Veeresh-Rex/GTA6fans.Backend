@@ -1,5 +1,8 @@
-﻿using GTA6fans.Application.DTOs;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +20,34 @@ public class UsersController : ControllerBase
         _userService = userService;
         _logger = logger;
     }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<UserDto>> VerifyMe()
+    {
+        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userId == null)
+        {
+            return Unauthorized("User ID not found in token");
+        }
+        try
+        {
+            var user = await _userService.GetUserByIdAsync(userId);
+            return Ok(user);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "User not found");
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while verifying user");
+            return StatusCode(500, "An error occurred while processing your request");
+        }
+    }
+
 
     [HttpPost("login")]
     public async Task<ActionResult<AuthenticateUserResponse>> Login([FromBody] AuthenticateUserRequest request)

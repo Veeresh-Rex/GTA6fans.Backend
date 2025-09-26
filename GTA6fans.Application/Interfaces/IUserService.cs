@@ -7,4 +7,5 @@ public interface IUserService
     Task<AuthenticateUserResponse> Login(AuthenticateUserRequest userRequest);
 
     Task<UserDto> CreateUserAsync(CreateUserRequest request);
+    Task<UserDto> GetUserByIdAsync(string userId);
 }

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
 using GTA6fans.Domain.Entities;
+using GTA6fans.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,12 +11,12 @@ namespace GTA6fans.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ForumController : ControllerBase
+public class ForumsController : ControllerBase
 {
     private readonly IForumService _forumService;
-    private readonly ILogger<ForumController> _logger;
+    private readonly ILogger<ForumsController> _logger;
 
-    public ForumController(IForumService forumService, ILogger<ForumController> logger)
+    public ForumsController(IForumService forumService, ILogger<ForumsController> logger)
     {
         _forumService = forumService;
         _logger = logger;
@@ -31,9 +32,9 @@ public class ForumController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ForumTopic>>> GetForums([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<ActionResult<PagedResult<ForumResponseDTO>>> GetForums([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string sort = "popular")
     {
-        var pagedData = await _forumService.GetForumList(page, pageSize, null);
+        var pagedData = await _forumService.GetForumList(page, pageSize, sort != "newest");
         return Ok(pagedData);
     }
 
@@ -47,7 +48,7 @@ public class ForumController : ControllerBase
         return Ok(true);
     }
 
-    [Authorize(Roles = "1")]
+    [Authorize]
     [HttpPost("new")]
     public async Task<ActionResult<CreateForumResponseDTO>> CreateForum([FromBody]CreateForumRequestDTO request)
     {
