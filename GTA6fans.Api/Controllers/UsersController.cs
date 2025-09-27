@@ -1,4 +1,5 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http;
 using System.Security.Claims;
 using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
@@ -71,12 +72,12 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("new")]
-    public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
+    public async Task<ActionResult<AuthenticateUserResponse>> CreateUser(CreateUserRequest request)
     {
         try
         {
             var user = await _userService.CreateUserAsync(request);
-            return CreatedAtAction("User", new { id = user.Id }, user);
+            return Ok(user);
         }
         catch (InvalidOperationException ex)
         {
@@ -90,4 +91,16 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpPost("verifycaptcha")]
+    public async Task<IActionResult> VerifyCaptcha([FromBody] VerifyCaptchaRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Token))
+        {
+            return BadRequest("Captcha token is missing");
+        }
+
+        var result = await _userService.VerifyCaptcha(request);
+
+        return Ok(result);
+    }
 }

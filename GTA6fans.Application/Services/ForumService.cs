@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Helpers;
 using GTA6fans.Application.Interfaces;
@@ -64,19 +65,47 @@ public class ForumService : IForumService
         return forumResponseDTO;
     }
 
-    public async Task<PagedResult<ForumResponseDTO>> GetForumList(int page, int pageSize, bool? sortByPopularity)
+    public async Task<PagedResult<ForumResponseDTO>> GetForumList(string? userId, string? query, string? scope, string? category, int page, int pageSize, bool? sortByPopularity)
     {
-        PagedResult<ForumTopic> pagedResult = new PagedResult<ForumTopic>();
+        // Build filter condition
+        Expression<Func<ForumTopic, bool>>? filter = null;
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var lowered = query.ToLower();
+            filter = x => x.Title.ToLower().Contains(lowered);
+        }
 
+        if (!string.IsNullOrWhiteSpace(scope) && scope.Equals("me", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                filter = filter.AndAlso(x => x.AuthorId == userId);
+            }
+        }
+
+
+        // 🏷️ Category filter
+        if (!string.IsNullOrWhiteSpace(category) && !category.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            filter = filter.AndAlso(x => x.Category.ToLower() == category.ToLower());
+        }
+
+
+        // Choose sorting
+        Func<IQueryable<ForumTopic>, IOrderedQueryable<ForumTopic>> orderBy;
         if (sortByPopularity is true)
         {
-            pagedResult = await _forumTopicRepository.GetPagedAsync(page, pageSize, null, x => x.OrderBy(e => e.ReplyCount));
+            orderBy = x => x.OrderByDescending(e => e.ReplyCount);
         }
         else
         {
-            pagedResult = await _forumTopicRepository.GetPagedAsync(page, pageSize, null, x => x.OrderBy(e => e.CreatedAt));
+            orderBy = x => x.OrderByDescending(e => e.CreatedAt);
         }
 
+        // Get data
+        var pagedResult = await _forumTopicRepository.GetPagedAsync(page, pageSize, filter, orderBy);
+
+        // Map to DTO
         var forumResponseDTOs = pagedResult.Items.Select(forum => new ForumResponseDTO()
         {
             Id = forum.Id,
@@ -98,16 +127,16 @@ public class ForumService : IForumService
             Slug = forum.Slug
         }).ToList();
 
-        PagedResult<ForumResponseDTO> result = new PagedResult<ForumResponseDTO>()
+        return new PagedResult<ForumResponseDTO>
         {
             Items = forumResponseDTOs,
             PageNumber = pagedResult.PageNumber,
             PageSize = pagedResult.PageSize,
-            TotalCount = pagedResult.TotalCount
+            TotalCount = pagedResult.TotalCount,
+            TotalPages = pagedResult.TotalPages
         };
-
-        return result;
     }
+
 
     public async Task<CreateForumResponseDTO> CreateTopicAsync(CreateForumRequestDTO requestDTO, string authorId)
     {
@@ -205,6 +234,16 @@ public class ForumService : IForumService
         if (request.DocumentType != DocumentType.Topic && request.DocumentType != DocumentType.Comment)
         {
             throw new ArgumentException("Invalid reaction type");
+        }
+
+        if (request.IsRevoking)
+        {
+            var reactionToDelete = await _reactionRepository.FindFirstOrDefaultAsync(r => r.UserId == userId && r.DocumentId == request.DocumentId);
+            if (reactionToDelete != null)
+            {
+                await _reactionRepository.DeleteAsync(reactionToDelete.Id);
+            }
+            return;
         }
 
         var existingReaction = await _reactionRepository.FindFirstOrDefaultAsync(r => r.UserId == userId && r.DocumentId == request.DocumentId);

@@ -35,9 +35,12 @@ public class ForumsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResult<ForumResponseDTO>>> GetForums([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string sort = "popular")
+    [OptionalAuthorize]
+    public async Task<ActionResult<PagedResult<ForumResponseDTO>>> GetForums([FromQuery] string? query, [FromQuery] string? scope, [FromQuery] string? category, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string sort = "popular")
     {
-        var pagedData = await _forumService.GetForumList(page, pageSize, sort != "newest");
+        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var pagedData = await _forumService.GetForumList(userId, query, scope, category, page, pageSize, sort != "newest");
         return Ok(pagedData);
     }
 
@@ -53,14 +56,14 @@ public class ForumsController : ControllerBase
 
     [Authorize]
     [HttpPost("new")]
-    public async Task<ActionResult<CreateForumResponseDTO>> CreateForum([FromBody]CreateForumRequestDTO request)
+    public async Task<ActionResult<CreateForumResponseDTO>> CreateForum([FromBody] CreateForumRequestDTO request)
     {
         try
         {
             var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
                     ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if(userId == null)
+            if (userId == null)
             {
                 return Unauthorized("User ID not found in token");
             }

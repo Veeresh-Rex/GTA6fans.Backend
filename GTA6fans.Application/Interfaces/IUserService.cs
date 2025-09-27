@@ -5,7 +5,7 @@ namespace GTA6fans.Application.Interfaces;
 public interface IUserService
 {
     Task<AuthenticateUserResponse> Login(AuthenticateUserRequest userRequest);
-
-    Task<UserDto> CreateUserAsync(CreateUserRequest request);
+    Task<AuthenticateUserResponse> CreateUserAsync(CreateUserRequest request);
     Task<UserDto> GetUserByIdAsync(string userId);
+    Task<bool> VerifyCaptcha(VerifyCaptchaRequest request);
 }

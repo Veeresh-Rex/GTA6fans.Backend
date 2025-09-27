@@ -51,6 +51,7 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 // Add application services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IForumService, ForumService>();
+builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
 builder.Services.AddControllers();
@@ -61,6 +62,8 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "GTA6fans API", Version = "v1" });
 });
+
+builder.Services.AddHttpClient();
 
 // Configure CORS
 builder.Services.AddCors(options =>

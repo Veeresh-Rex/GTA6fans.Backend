@@ -126,6 +126,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
         if (pageNumber < 1) throw new ArgumentException("Page number must be greater than 0", nameof(pageNumber));
         if (pageSize < 1) throw new ArgumentException("Page size must be greater than 0", nameof(pageSize));
         IQueryable<T> query = _collection.AsQueryable();
+
         try
         {
             var filter = predicate != null ? Builders<T>.Filter.And(
@@ -139,6 +140,11 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
             if (orderBy != null)
             {
                 query = orderBy(query);
+            }
+
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
             }
 
             var items = await query.Skip(skip).Take(pageSize).ToListAsync();

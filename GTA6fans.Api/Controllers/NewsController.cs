@@ -1,10 +1,6 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
-using GTA6fans.Application.Services;
 using GTA6fans.Domain.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GTA6fans.Api.Controllers;
@@ -13,20 +9,36 @@ namespace GTA6fans.Api.Controllers;
 [Route("api/[controller]")]
 public class NewsController : ControllerBase
 {
-    private readonly IUserService _userService;
+    private readonly INewsService _newsService;
     private readonly ILogger<UsersController> _logger;
 
-    public NewsController(IUserService userService, ILogger<UsersController> logger)
+    public NewsController(INewsService newsService, ILogger<UsersController> logger)
     {
-        _userService = userService;
+        _newsService = newsService;
         _logger = logger;
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResult<ForumResponseDTO>>> GetForums([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string sort = "popular")
+    public async Task<ActionResult<PagedResult<ForumResponseDTO>>> GetNews([FromQuery] string? query, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-       // var pagedData = await _forumService.GetForumList(page, pageSize, sort != "newest");
-        return Ok();
+        var pagedData = await _newsService.GetNewsList(null, query, page, pageSize);
+        return Ok(pagedData);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult> CreateNewsArticle([FromBody] CreateNewsArticleRequest request)
+    {
+        try
+        {
+            var result = await _newsService.CreateNewsArticleAsync(request);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while creating news article");
+            return StatusCode(500, "An error occurred while processing your request");
+        }
     }
 
 

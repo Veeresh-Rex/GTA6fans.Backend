@@ -1,8 +1,10 @@
+using System.Net.Http.Json;
 using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
 using GTA6fans.Application.Mappers;
 using GTA6fans.Domain.Interfaces;
 using GTA6fans.Infrastructure.Utilities;
+using Microsoft.Extensions.Configuration;
 
 namespace GTA6fans.Application.Services;
 
@@ -10,11 +12,15 @@ public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IConfiguration _configuration;
+    private readonly HttpClient _httpClient;
 
-    public UserService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator)
+    public UserService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator, IConfiguration configuration, HttpClient httpClient)
     {
         _userRepository = userRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _configuration = configuration;
+        _httpClient = httpClient;
     }
 
     public async Task<UserDto> GetUserByIdAsync(string userId)
@@ -51,7 +57,7 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<UserDto> CreateUserAsync(CreateUserRequest request)
+    public async Task<AuthenticateUserResponse> CreateUserAsync(CreateUserRequest request)
     {
         // Check if display name already exists
         if (!await _userRepository.IsDisplayNameAvailableAsync(request.DisplayName))
@@ -70,8 +76,31 @@ public class UserService : IUserService
 
         var user = UserMapper.ToEntity(request, passwordHash);
         var createdUser = await _userRepository.CreateAsync(user);
+        var token = _jwtTokenGenerator.GenerateJwtToken(user.Id, (int)user.Type);
 
-        return UserMapper.ToDto(createdUser);
+        return new AuthenticateUserResponse
+        {
+            Token = token,
+            User = UserMapper.ToDto(createdUser)
+        };
     }
 
+    public async Task<bool> VerifyCaptcha(VerifyCaptchaRequest request)
+    {
+
+        var secret = _configuration["ReCaptcha:SecretKey"];
+        var verifyUrl = $"https://www.google.com/recaptcha/api/siteverify?secret={secret}&response={request.Token}";
+
+        var response = await _httpClient.GetAsync(verifyUrl);
+
+
+        var captchaResult = await response.Content.ReadFromJsonAsync<GoogleCaptchaResponse>();
+
+        if (captchaResult == null)
+        {
+            throw new UnauthorizedAccessException("Captcha verification failed.");
+        }
+
+        return captchaResult.Success;
+    }
 }
