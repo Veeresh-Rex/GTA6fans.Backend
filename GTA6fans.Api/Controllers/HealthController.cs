@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using GTA6fans.Infrastructure.Data;
-using MongoDB.Driver;
 using MongoDB.Bson;
 
 namespace GTA6fans.Api.Controllers;

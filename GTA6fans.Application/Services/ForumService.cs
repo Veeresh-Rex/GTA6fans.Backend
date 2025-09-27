@@ -3,6 +3,7 @@ using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Helpers;
 using GTA6fans.Application.Interfaces;
 using GTA6fans.Domain.Entities;
+using GTA6fans.Domain.Enums;
 using GTA6fans.Domain.Interfaces;
 using GTA6fans.Domain.Models;
 
@@ -13,15 +14,17 @@ public class ForumService : IForumService
     private readonly IForumTopicRepository _forumTopicRepository;
     private readonly IUserRepository _userRepository;
     private readonly IForumReplyRepository _forumReplyRepository;
+    private readonly IReactionRepository _reactionRepository;
 
-    public ForumService(IForumTopicRepository forumTopicRepository, IUserRepository userRepository, IForumReplyRepository forumReplyRepository)
+    public ForumService(IForumTopicRepository forumTopicRepository, IUserRepository userRepository, IForumReplyRepository forumReplyRepository, IReactionRepository reactionRepository)
     {
         _forumTopicRepository = forumTopicRepository;
         _userRepository = userRepository;
         _forumReplyRepository = forumReplyRepository;
+        _reactionRepository = reactionRepository;
     }
 
-    public async Task<ForumResponseDTO> GetForumbySlug(string slug)
+    public async Task<ForumResponseDTO> GetForumbySlug(string slug, string? userId)
     {
         var forum = (await _forumTopicRepository.FindAsync(x => x.Slug == slug.ToLower())).FirstOrDefault();
         if (forum == null)
@@ -30,19 +33,22 @@ public class ForumService : IForumService
         }
 
         var replies = await _forumReplyRepository.GetByTopicIdAsync(forum.Id);
+        var documentIds = replies.Select(r => r.Id).ToList(); documentIds.Add(forum.Id);
+
+        var reactions = await _reactionRepository.FindAsync(r => documentIds.Contains(r.DocumentId));
 
         ForumResponseDTO forumResponseDTO = new ForumResponseDTO()
         {
             Id = forum.Id,
             Author = new Author
             {
-                Name = forum.AuthorName, 
+                Name = forum.AuthorName,
             },
             Category = forum.Category,
             Slug = forum.Slug,
             Content = forum.Content,
             Images = forum.Images,
-            Replies = BuildReplyTree(replies),
+            Replies = BuildReplyTree(replies, reactions, userId),
             RepliesCount = forum.ReplyCount,
             Title = forum.Title,
             Timestamp = forum.CreatedAt.ToString(),
@@ -50,7 +56,9 @@ public class ForumService : IForumService
             {
                 Author = forum.LastActivity?.AuthorName ?? "",
                 Timestamp = forum.LastActivity?.Timestamp.ToString() ?? ""
-            }
+            },
+            Reactions = reactions.Where(x => x.DocumentId == forum.Id && x.DocumentType == DocumentType.Topic).GroupBy(e => e.Emoji).ToDictionary(g => g.Key, g => g.Count()),
+            MyReaction = userId == null ? null : reactions.FirstOrDefault(x => x.DocumentId == forum.Id && x.DocumentType == DocumentType.Topic && x.UserId == userId)?.Emoji
         };
 
         return forumResponseDTO;
@@ -104,7 +112,7 @@ public class ForumService : IForumService
     public async Task<CreateForumResponseDTO> CreateTopicAsync(CreateForumRequestDTO requestDTO, string authorId)
     {
         var user = await _userRepository.GetByIdAsync(authorId);
-        if(user == null)
+        if (user == null)
         {
             throw new ArgumentException("Author not found");
         }
@@ -151,7 +159,7 @@ public class ForumService : IForumService
         return new() { Slug = $"{forumTopic.Slug}" };
     }
 
-    public async Task AddReplyAsync(CreateReplyRequest request)
+    public async Task<Reply> AddReplyAsync(CreateReplyRequest request)
     {
         var topic = await _forumTopicRepository.GetByIdAsync(request.TopicId);
         var author = await _userRepository.GetByIdAsync(request.AuthorId);
@@ -175,16 +183,54 @@ public class ForumService : IForumService
         };
 
         await _forumReplyRepository.CreateAsync(forumReply);
-        await _forumTopicRepository.UpdateByReplyAsync(topic.Id, new LastActivity() { 
-        AuthorId = request.AuthorId,
+        await _forumTopicRepository.UpdateByReplyAsync(topic.Id, new LastActivity()
+        {
+            AuthorId = request.AuthorId,
             AuthorName = author.DisplayName,
             Timestamp = DateTime.UtcNow
         });
+
+        return new Reply()
+        {
+            Id = forumReply.Id,
+            Author = new Author { Name = author.DisplayName },
+            Timestamp = forumReply.CreatedAt.ToString("o"),
+            Content = forumReply.Content
+        };
     }
 
-    private static List<Reply> BuildReplyTree(IEnumerable<ForumReply> allReplies)
+    public async Task SubmitReactionAsync(ReactionRequestDto request, string userId)
     {
-        if(allReplies.Count() == 0)
+
+        if (request.DocumentType != DocumentType.Topic && request.DocumentType != DocumentType.Comment)
+        {
+            throw new ArgumentException("Invalid reaction type");
+        }
+
+        var existingReaction = await _reactionRepository.FindFirstOrDefaultAsync(r => r.UserId == userId && r.DocumentId == request.DocumentId);
+        if (existingReaction != null)
+        {
+            existingReaction.Emoji = request.Emoji;
+
+            await _reactionRepository.UpdateAsync(existingReaction);
+        }
+        else
+        {
+            // Add new reaction
+            await _reactionRepository.CreateAsync(new Domain.Entities.Reaction
+            {
+                UserId = userId,
+                Emoji = request.Emoji,
+                DocumentId = request.DocumentId,
+                DocumentType = request.DocumentType,
+
+            });
+        }
+    }
+
+    private static List<Reply> BuildReplyTree(IEnumerable<ForumReply> allReplies, IEnumerable<Domain.Entities.Reaction> reactions, string? userId)
+    {
+        if (allReplies.Count() == 0)
         {
             return new List<Reply>();
         }
@@ -196,7 +242,9 @@ public class ForumService : IForumService
                 Author = new Author { Name = r.AuthorName },
                 Timestamp = r.CreatedAt.ToString("o"),
                 Content = r.Content,
-                Replies = new List<Reply>()
+                Replies = new List<Reply>(),
+                Reactions = reactions.Where(x => x.DocumentId == r.Id && x.DocumentType == DocumentType.Comment).GroupBy(x => x.Emoji).ToDictionary(g => g.Key, g => g.Count()),
+                MyReaction = userId == null ? null : reactions.FirstOrDefault(x => x.DocumentId == r.Id && x.DocumentType == DocumentType.Comment && x.UserId == userId)?.Emoji
             });
 
         var roots = new List<Reply>();

@@ -1,8 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using GTA6fans.Api.Attributes;
 using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
-using GTA6fans.Domain.Entities;
 using GTA6fans.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,9 +24,12 @@ public class ForumsController : ControllerBase
 
 
     [HttpGet("{slug}")]
+    [OptionalAuthorize]
     public async Task<ActionResult<ForumResponseDTO>> GetForumBySlug(string slug)
     {
-        var forum = await _forumService.GetForumbySlug(slug);
+        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var forum = await _forumService.GetForumbySlug(slug, userId);
 
         return Ok(forum);
     }
@@ -43,9 +46,9 @@ public class ForumsController : ControllerBase
     public async Task<ActionResult> PostReply(CreateReplyRequest createReplyRequest)
     {
         createReplyRequest.AuthorId = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-        await _forumService.AddReplyAsync(createReplyRequest);
+        var reply = await _forumService.AddReplyAsync(createReplyRequest);
 
-        return Ok(true);
+        return Ok(reply);
     }
 
     [Authorize]
@@ -77,4 +80,20 @@ public class ForumsController : ControllerBase
         }
     }
 
+    [Authorize]
+    [HttpPost("reaction")]
+    public async Task<ActionResult<CreateForumResponseDTO>> SubmitReaction([FromBody] ReactionRequestDto request)
+    {
+        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                    ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userId == null)
+        {
+            return Unauthorized("User ID not found in token");
+        }
+
+        await _forumService.SubmitReactionAsync(request, userId);
+
+        return Ok();
+    }
 }
