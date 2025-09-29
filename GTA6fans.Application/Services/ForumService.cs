@@ -157,7 +157,7 @@ public class ForumService : IForumService
             Title = requestDTO.Title,
             Slug = requestDTO.Title.ToLower().Replace(" ", "-"),
             AuthorName = user.DisplayName,
-            Images = new List<string>(),
+            Images = requestDTO.Images,
             LastActivity = new LastActivity()
             {
                 AuthorId = authorId,

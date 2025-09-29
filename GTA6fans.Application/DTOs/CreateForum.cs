@@ -1,6 +1,4 @@
-﻿using GTA6fans.Domain.Entities;
-
-namespace GTA6fans.Application.DTOs;
+﻿namespace GTA6fans.Application.DTOs;
 
 public class CreateForumRequestDTO
 {
@@ -9,6 +7,8 @@ public class CreateForumRequestDTO
     public string Content { get; set; } = string.Empty;
 
     public string Category { get; set; } = string.Empty;
+
+    public List<string> Images { get; set; } = new List<string>();
 
     public string Author { get; set; } = string.Empty;
 }
