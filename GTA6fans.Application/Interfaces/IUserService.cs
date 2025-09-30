@@ -7,5 +7,4 @@ public interface IUserService
     Task<AuthenticateUserResponse> Login(AuthenticateUserRequest userRequest);
     Task<AuthenticateUserResponse> CreateUserAsync(CreateUserRequest request);
     Task<UserDto> GetUserByIdAsync(string userId);
-    Task<bool> VerifyCaptcha(VerifyCaptchaRequest request);
 }

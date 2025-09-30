@@ -3,6 +3,7 @@ using GTA6fans.Application.DTOs;
 using GTA6fans.Application.Interfaces;
 using GTA6fans.Application.Mappers;
 using GTA6fans.Domain.Interfaces;
+using GTA6fans.Domain.Models;
 using GTA6fans.Infrastructure.Utilities;
 using Microsoft.Extensions.Configuration;
 
@@ -59,6 +60,12 @@ public class UserService : IUserService
 
     public async Task<AuthenticateUserResponse> CreateUserAsync(CreateUserRequest request)
     {
+        // Verify CAPTCHA
+        if (!await VerifyCaptcha(request.RecaptchaToken))
+        {
+            throw new UnauthorizedAccessException("Captcha verification failed.");
+        }
+
         // Check if display name already exists
         if (!await _userRepository.IsDisplayNameAvailableAsync(request.DisplayName))
         {
@@ -85,16 +92,22 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<bool> VerifyCaptcha(VerifyCaptchaRequest request)
+    private async Task<bool> VerifyCaptcha(string recaptchaToken)
     {
 
-        var secret = _configuration["ReCaptcha:SecretKey"];
-        var verifyUrl = $"https://www.google.com/recaptcha/api/siteverify?secret={secret}&response={request.Token}";
+        var secret = _configuration["RecaptchaSettings:SecretKey"];
+        var url = _configuration["RecaptchaSettings:VerificationUrl"];
 
-        var response = await _httpClient.GetAsync(verifyUrl);
+        var content = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("secret", secret),
+            new KeyValuePair<string, string>("response", recaptchaToken),
+        });
 
+        var response = await _httpClient.PostAsync(new Uri(url), content);
+        response.EnsureSuccessStatusCode();
 
-        var captchaResult = await response.Content.ReadFromJsonAsync<GoogleCaptchaResponse>();
+        var captchaResult = await response.Content.ReadFromJsonAsync<RecaptchaVerificationResponse>();
 
         if (captchaResult == null)
         {

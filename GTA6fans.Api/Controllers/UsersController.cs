@@ -90,17 +90,4 @@ public class UsersController : ControllerBase
             return StatusCode(500, "An error occurred while processing your request");
         }
     }
-
-    [HttpPost("verifycaptcha")]
-    public async Task<IActionResult> VerifyCaptcha([FromBody] VerifyCaptchaRequest request)
-    {
-        if (string.IsNullOrEmpty(request.Token))
-        {
-            return BadRequest("Captcha token is missing");
-        }
-
-        var result = await _userService.VerifyCaptcha(request);
-
-        return Ok(result);
-    }
 }

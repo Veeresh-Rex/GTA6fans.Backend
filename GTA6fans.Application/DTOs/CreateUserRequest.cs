@@ -15,6 +15,9 @@ public class CreateUserRequest
     [Required]
     [StringLength(100, MinimumLength = 6)]
     public string Password { get; set; } = string.Empty;
+
+    [Required]
+    public string RecaptchaToken { get; set; } = string.Empty;
 }
 
 public class AuthenticateUserRequest
