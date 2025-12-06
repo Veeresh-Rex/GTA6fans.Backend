@@ -21,4 +21,5 @@ public class CreateNewsArticleRequest
     public string? ImageUrl { get; set; }
     public string? ImageHint { get; set; }
     public string ExternalUrl { get; set; } = string.Empty;
+    public DateTime PublishedAt { get; set; } = DateTime.UtcNow;
 }

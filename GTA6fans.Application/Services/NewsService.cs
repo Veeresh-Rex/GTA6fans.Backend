@@ -24,7 +24,7 @@ public class NewsService : INewsService
             Snippet = request.Snippet,
             ImageUrl = request.ImageUrl,
             Author = request.Author,
-            PublishedAt = DateTime.UtcNow,
+            PublishedAt = request.PublishedAt,
             Likes = 0,
             ExternalUrl = request.ExternalUrl,
             ImageHint = request.ImageHint
