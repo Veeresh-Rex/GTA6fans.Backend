@@ -92,9 +92,13 @@ public class UserService : IUserService
         };
     }
 
+    public async Task<long> GetUsersCountAsync()
+    {
+        return await _userRepository.CountAsync();
+    }
+
     private async Task<bool> VerifyCaptcha(string recaptchaToken)
     {
-
         var secret = _configuration["RecaptchaSettings:SecretKey"];
         var url = _configuration["RecaptchaSettings:VerificationUrl"];
 
